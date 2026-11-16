@@ -1,6 +1,6 @@
 # Resume Lab
 
-A local, draft-only companion for career-ops. Paste one job and your resume. Generate a tailored draft with your signed-in Codex CLI, inspect source evidence and gaps, edit it, and export HTML or Markdown. Use the browser's Print / Save PDF command for PDF output.
+A local, draft-only companion for career-ops. Paste, upload, or import one job and your resume from URLs. Generate a tailored draft with your signed-in Codex CLI, inspect source evidence and gaps, edit it, and download Word, PDF, HTML, or Markdown.
 
 This trial has no employer integration, browser autofill, or application submission endpoint. It does not run the upstream installer or full career-ops pipeline. It reuses the upstream fact checker and writing checker.
 
@@ -13,7 +13,7 @@ This trial has no employer integration, browser autofill, or application submiss
 5. Paste your resume, upload a PDF/DOCX/TXT/Markdown file, or put its text in the ignored `cv.md` file.
 6. Paste or upload a job description, or use the clearly labeled fictional example. Review the extracted text in either text box.
 7. Select the input-sharing checkbox and generate the draft.
-8. Review the facts and wording before enabling exports.
+8. Review the facts and wording, select the review checkbox, and choose a download format.
 
 No `npm install` is required for this companion. It uses Node built-ins and existing upstream modules. `CODEX_BIN` can name the installed Codex executable. `RESUME_LAB_PORT` can select another local port. The model is `gpt-6.1-sol`; the account must have access to it. Model use is subject to the account's usage limits.
 
@@ -31,6 +31,20 @@ resume-lab/.local/venv/bin/python3 -m pip install -r resume-lab/requirements-upl
 ```
 
 `RESUME_LAB_PYTHON` can select a different Python executable with `pypdf` installed.
+
+## URL inputs
+
+Each field has a URL box and a **Load URL** button. Public HTTPS pages and direct PDF, DOCX, TXT, and Markdown links are supported. Public Google Docs links are converted to their text export URL. Private documents still need file upload or pasted text.
+
+Fetching a URL contacts that site without your browser cookies or credentials. It does not upload your resume, call Codex, execute page scripts, or follow links in the page. The extracted text appears in the editable box. Importing is not verification that a job is active, an employer is legitimate, or a resume's claims are true. Check the imported text before generating.
+
+Imports allow HTTPS on port 443, reject local/private addresses and URL credentials, validate DNS answers at connection time, and check each redirect. Downloads are limited to 8 MB, three redirects, and a 20-second fetch deadline. Login walls, CAPTCHAs, JavaScript-only pages, unsupported encodings, or unreadable files need upload or pasted text. Failed imports keep the previous text.
+
+## Word and PDF downloads
+
+After reviewing a draft, use **Download Word (.docx)** or **Download PDF**. Both exports use the reviewed Markdown and rerun the source checks on the server. Editing or importing new inputs clears review. Word uses editable paragraphs and real list bullets. PDF contains selectable text. Both use a single column and run locally, without another model call. Downloaded pagination can differ between Word and PDF; review both before use.
+
+Word and PDF export require `python-docx` and `reportlab`, included in the Codex desktop bundled runtime. The local setup command above installs them from `requirements-upload.txt` as well. Files are returned directly to the browser, without adding them to Git or saving originals on the server.
 
 ## Data and safety
 
@@ -58,7 +72,7 @@ The upstream browser guard explicitly documents that an allowed button can submi
 Run from the repository root:
 
 ```sh
-node --test resume-lab/lab.test.mjs resume-lab/uploads.test.mjs tests/headless-permission-flags.test.mjs
+node --test resume-lab/lab.test.mjs resume-lab/uploads.test.mjs resume-lab/url-export.test.mjs tests/headless-permission-flags.test.mjs
 ```
 
 Tests cover bounded input, untrusted-input framing, unsupported metrics, quote verification, missing bullet evidence, origin/host checks, token enforcement, serial generation, and the absence of a submit endpoint. API tests use mock generation. A live one-job trial is a separate check.

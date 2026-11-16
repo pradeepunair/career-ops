@@ -7,6 +7,8 @@ import { getCareerOpsRoot } from '../path-resolver.mjs';
 import { isMainModule } from '../lib/is-main-module.mjs';
 import { MODEL, UPSTREAM, validateInput, checkDraft, runCodex } from './core.mjs';
 import { extractUpload, MAX_UPLOAD_BODY_BYTES } from './uploads.mjs';
+import { importURL } from './import-url.mjs';
+import { exportResume } from './exports.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const key = randomBytes(32).toString('hex');
@@ -67,6 +69,20 @@ export function createLabServer({ generate = runCodex, sourcePath = join(getCare
         return send(200, { token: key, source, source_label: source ? 'Your local cv.md' : 'Paste your current resume', model: MODEL, upstream: UPSTREAM, mode: 'draft-only' });
       }
       if (!tokenMatches(req.headers['x-lab-token'])) return send(403, { error: 'Refresh the local page to start a session.' });
+      if (req.method === 'POST' && path === '/api/import-url') {
+        if (busy || extracting) return send(409, { error: 'Wait for the current generation or import to finish.' });
+        extracting = true;
+        try {
+          return send(200, await importURL(await jsonBody(req, 12000)));
+        } finally {
+          extracting = false;
+        }
+      }
+      if (req.method === 'POST' && path === '/api/export') {
+        const artifact = await exportResume(await jsonBody(req));
+        res.writeHead(200, { 'Content-Type': artifact.contentType, 'Content-Disposition': `attachment; filename="${artifact.filename}"`, 'Content-Length': artifact.bytes.length });
+        return res.end(artifact.bytes);
+      }
       if (req.method === 'POST' && path === '/api/upload') {
         if (busy || extracting) return send(409, { error: 'Wait for the current generation or file upload to finish.' });
         extracting = true;

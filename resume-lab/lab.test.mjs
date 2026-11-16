@@ -72,6 +72,9 @@ test('API requires a session token, has no submit endpoint, and serializes gener
     const uploaded = await (await fetch(base + '/api/upload', { method: 'POST', headers, body: uploadBody })).json();
     assert.equal(uploaded.text, 'A pasted role from a local file.');
     assert.equal(calls, 0);
+    assert.equal((await fetch(base + '/api/import-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: 'job', url: 'https://example.com/' }) })).status, 403);
+    assert.equal((await fetch(base + '/api/import-url', { method: 'POST', headers, body: JSON.stringify({ target: 'job', url: 'https://127.0.0.1/' }) })).status, 400);
+    assert.equal((await fetch(base + '/api/export', { method: 'POST', headers, body: JSON.stringify({ format: 'docx', reviewed: false, source, result: draft }) })).status, 400);
     assert.equal((await fetch(base + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
     assert.equal((await fetch(base + '/api/session', { headers: { Origin: 'https://attacker.example' } })).status, 403);
     const frameHeaders = { Referer: 'http://127.0.0.1:8501/', 'Sec-Fetch-Dest': 'iframe', 'Sec-Fetch-Site': 'same-site' };

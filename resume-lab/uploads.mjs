@@ -9,7 +9,7 @@ export const MAX_UPLOAD_BODY_BYTES = Math.ceil(MAX_UPLOAD_BYTES / 3) * 4 + 4096;
 const helper = fileURLToPath(new URL('./extract_upload.py', import.meta.url));
 const supported = new Set(['.pdf', '.docx', '.txt', '.md']);
 
-function pythonExecutable() {
+export function pythonExecutable() {
   if (process.env.RESUME_LAB_PYTHON) return process.env.RESUME_LAB_PYTHON;
   const candidates = [fileURLToPath(new URL('./.local/venv/bin/python3', import.meta.url)), join(homedir(), '.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3')];
   return candidates.find(path => existsSync(path)) || 'python3';
