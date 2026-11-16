@@ -67,6 +67,11 @@ test('API requires a session token, has no submit endpoint, and serializes gener
   try {
     const session = await (await fetch(base + '/api/session')).json();
     const headers = { 'Content-Type': 'application/json', 'X-Lab-Token': session.token, Origin: base };
+    const uploadBody = JSON.stringify({ target: 'job', filename: 'role.txt', content: Buffer.from('A pasted role from a local file.').toString('base64') });
+    assert.equal((await fetch(base + '/api/upload', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: uploadBody })).status, 403);
+    const uploaded = await (await fetch(base + '/api/upload', { method: 'POST', headers, body: uploadBody })).json();
+    assert.equal(uploaded.text, 'A pasted role from a local file.');
+    assert.equal(calls, 0);
     assert.equal((await fetch(base + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
     assert.equal((await fetch(base + '/api/session', { headers: { Origin: 'https://attacker.example' } })).status, 403);
     const frameHeaders = { Referer: 'http://127.0.0.1:8501/', 'Sec-Fetch-Dest': 'iframe', 'Sec-Fetch-Site': 'same-site' };

@@ -1,0 +1,1 @@
+pypdf==6.21.4  # Extract selectable text from uploaded PDFs locally, without OCR or model calls.

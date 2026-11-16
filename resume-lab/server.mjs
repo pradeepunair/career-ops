@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { getCareerOpsRoot } from '../path-resolver.mjs';
 import { isMainModule } from '../lib/is-main-module.mjs';
 import { MODEL, UPSTREAM, validateInput, checkDraft, runCodex } from './core.mjs';
+import { extractUpload, MAX_UPLOAD_BODY_BYTES } from './uploads.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const key = randomBytes(32).toString('hex');
@@ -29,13 +30,13 @@ function tokenMatches(value) {
   return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value) && timingSafeEqual(Buffer.from(value), Buffer.from(key));
 }
 
-async function jsonBody(req) {
+async function jsonBody(req, maxBytes = 250000) {
   if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new Error('Use an application/json request.');
   const chunks = [];
   let bytes = 0;
   for await (const chunk of req) {
     bytes += chunk.length;
-    if (bytes > 250000) throw new Error('Input is too large.');
+    if (bytes > maxBytes) throw new Error('Input is too large.');
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
@@ -44,6 +45,7 @@ async function jsonBody(req) {
 export function createLabServer({ generate = runCodex, sourcePath = join(getCareerOpsRoot(), 'cv.md'), loadTrial = true, persistTrial = true } = {}) {
   let origin;
   let busy = false;
+  let extracting = false;
   let activeController;
   let last = null;
   const privateDir = join(here, '.local');
@@ -65,6 +67,15 @@ export function createLabServer({ generate = runCodex, sourcePath = join(getCare
         return send(200, { token: key, source, source_label: source ? 'Your local cv.md' : 'Paste your current resume', model: MODEL, upstream: UPSTREAM, mode: 'draft-only' });
       }
       if (!tokenMatches(req.headers['x-lab-token'])) return send(403, { error: 'Refresh the local page to start a session.' });
+      if (req.method === 'POST' && path === '/api/upload') {
+        if (busy || extracting) return send(409, { error: 'Wait for the current generation or file upload to finish.' });
+        extracting = true;
+        try {
+          return send(200, await extractUpload(await jsonBody(req, MAX_UPLOAD_BODY_BYTES)));
+        } finally {
+          extracting = false;
+        }
+      }
       if (req.method === 'GET' && path === '/api/trial') {
         if (!last && loadTrial) {
           try { last = JSON.parse(await readFile(join(privateDir, 'trial.json'), 'utf8')); } catch { /* No saved trial is a valid first run. */ }
