@@ -1,0 +1,13 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "resume_markdown": {"type": "string"},
+    "fit_summary": {"type": "string"},
+    "matched_requirements": {"type": "array", "items": {"type": "object", "additionalProperties": false, "properties": {"requirement": {"type": "string"}, "source_quote": {"type": "string"}}, "required": ["requirement", "source_quote"]}},
+    "gaps": {"type": "array", "items": {"type": "string"}},
+    "changes": {"type": "array", "items": {"type": "string"}},
+    "evidence": {"type": "array", "items": {"type": "object", "additionalProperties": false, "properties": {"claim": {"type": "string"}, "source_quote": {"type": "string"}}, "required": ["claim", "source_quote"]}}
+  },
+  "required": ["resume_markdown", "fit_summary", "matched_requirements", "gaps", "changes", "evidence"]
+}
