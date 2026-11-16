@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { validateInput, checkDraft, buildPrompt } from './core.mjs';
-import { allowedRequest, createLabServer } from './server.mjs';
+import { allowedRequest, allowedDashboardFrame, createLabServer } from './server.mjs';
 
 const source = '# Example Candidate\n## Experience\n### Example Company\nProduct Manager\n2020 - 2024\n- Reduced reconciliation effort by 30%.\n## Skills\nPayments, roadmaps, API integrations.\n';
 const draft = {
@@ -44,6 +44,18 @@ test('rejects cross-origin, same-site different-port, and rebound-host requests'
   assert.equal(allowedRequest({ headers: { host: 'attacker.example:4318' } }, origin), false);
 });
 
+test('only the named local dashboard can embed the document, never the API', () => {
+  const origin = 'http://127.0.0.1:4318';
+  const req = { method: 'GET', url: '/', headers: { host: '127.0.0.1:4318', 'sec-fetch-dest': 'iframe', 'sec-fetch-site': 'same-site', referer: 'http://127.0.0.1:8501/' } };
+  assert.equal(allowedDashboardFrame(req, origin), true);
+  assert.equal(allowedRequest(req, origin), false);
+  assert.equal(allowedDashboardFrame({ ...req, url: '/api/session' }, origin), false);
+  assert.equal(allowedDashboardFrame({ ...req, method: 'POST' }, origin), false);
+  assert.equal(allowedDashboardFrame({ ...req, headers: { ...req.headers, referer: 'https://attacker.example/' } }, origin), false);
+  assert.equal(allowedDashboardFrame({ ...req, headers: { ...req.headers, referer: 'http://localhost:5555/' } }, origin), false);
+  assert.equal(allowedDashboardFrame({ ...req, headers: { ...req.headers, 'sec-fetch-dest': 'empty' } }, origin), false);
+});
+
 test('API requires a session token, has no submit endpoint, and serializes generation', async () => {
   let release;
   let calls = 0;
@@ -57,6 +69,11 @@ test('API requires a session token, has no submit endpoint, and serializes gener
     const headers = { 'Content-Type': 'application/json', 'X-Lab-Token': session.token, Origin: base };
     assert.equal((await fetch(base + '/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
     assert.equal((await fetch(base + '/api/session', { headers: { Origin: 'https://attacker.example' } })).status, 403);
+    const frameHeaders = { Referer: 'http://127.0.0.1:8501/', 'Sec-Fetch-Dest': 'iframe', 'Sec-Fetch-Site': 'same-site' };
+    const framed = await fetch(base, { headers: frameHeaders });
+    assert.equal(framed.status, 200);
+    assert.ok(framed.headers.get('content-security-policy').includes('frame-ancestors http://127.0.0.1:8501 http://localhost:8501'));
+    assert.equal((await fetch(base + '/api/session', { headers: frameHeaders })).status, 403);
     assert.equal((await fetch(base + '/api/submit', { method: 'POST', headers, body: '{}' })).status, 404);
     const body = JSON.stringify({ source, job: 'Payments roadmap '.repeat(12) });
     const running = fetch(base + '/api/generate', { method: 'POST', headers, body });

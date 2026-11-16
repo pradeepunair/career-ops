@@ -19,7 +19,7 @@ No `npm install` is required for this companion. It uses Node built-ins and exis
 
 ## Data and safety
 
-- The page binds only to `127.0.0.1`. Requests need the expected Host and Origin. Mutating requests also need a random session token.
+- The page binds only to `127.0.0.1`. Requests need the expected Host and Origin. Mutating requests also need a random session token. The local JobScrape dashboard at `http://127.0.0.1:8501` or `http://localhost:8501` may embed the HTML page. This exception does not permit cross-origin API requests or access from other sites.
 - Codex receives the pasted resume and job text. Processing uses OpenAI through your CLI login. Local hosting does not mean local inference.
 - The worker runs read-only, with shell and web search tools disabled, in an empty temporary directory. It ignores user CLI configuration and project instruction files. No automatic permission bypass is used.
 - Candidate facts come only from the source resume. Job text is treated as untrusted data. The worker returns structured text; the server writes the result.

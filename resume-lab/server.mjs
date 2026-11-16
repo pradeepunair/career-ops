@@ -9,9 +9,20 @@ import { MODEL, UPSTREAM, validateInput, checkDraft, runCodex } from './core.mjs
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const key = randomBytes(32).toString('hex');
+const dashboardOrigins = new Set(['http://127.0.0.1:8501', 'http://localhost:8501']);
 
 export function allowedRequest(req, origin) {
   return req.headers.host === new URL(origin).host && (!req.headers.origin || req.headers.origin === origin) && !['cross-site', 'same-site'].includes(req.headers['sec-fetch-site']);
+}
+
+export function allowedDashboardFrame(req, origin) {
+  if (req.method !== 'GET' || req.headers.host !== new URL(origin).host || req.headers['sec-fetch-dest'] !== 'iframe') return false;
+  try {
+    const parent = new URL(req.headers.referer).origin;
+    return new URL(req.url, origin).pathname === '/' && dashboardOrigins.has(parent) && (!req.headers.origin || req.headers.origin === parent);
+  } catch {
+    return false;
+  }
 }
 
 function tokenMatches(value) {
@@ -38,10 +49,10 @@ export function createLabServer({ generate = runCodex, sourcePath = join(getCare
   const privateDir = join(here, '.local');
   const server = createServer(async (req, res) => {
     if (!origin) origin = `http://127.0.0.1:${server.address().port}`;
-    const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'none'; frame-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'" };
+    const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Content-Security-Policy': `default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'none'; frame-src blob:; base-uri 'none'; form-action 'none'; frame-ancestors ${[...dashboardOrigins].join(' ')}` };
     for (const [name, value] of Object.entries(headers)) res.setHeader(name, value);
     const send = (status, value) => { if (res.destroyed) return; res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(value)); };
-    if (!allowedRequest(req, origin)) return send(403, { error: 'Only this local page can access the trial.' });
+    if (!allowedRequest(req, origin) && !allowedDashboardFrame(req, origin)) return send(403, { error: 'Only this local page can access the trial.' });
     const path = new URL(req.url, origin).pathname;
     try {
       if (req.method === 'GET' && path === '/') {
